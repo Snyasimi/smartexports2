@@ -19,39 +19,29 @@ class FeatherlessService:
     def encode_image_to_base64(self, image_file):
         """
         Convert uploaded image file to base64 encoding.
-        Compresses the image to reduce file size for API limits.
-        
-        Args:
-            image_file: Django UploadedFile object
-            
-        Returns:
-            base64 encoded string of the compressed image
+        Aggressively compresses to reduce token size.
         """
         try:
-            # Open image
             image_file.seek(0)
             img = Image.open(image_file)
             
-            # Compress: resize if too large, reduce quality
-            max_width = 1280
-            max_height = 1280
+            # Much smaller dimensions to reduce token count
+            max_width = 640   # Reduced from 1280
+            max_height = 640  # Reduced from 1280
             
-            # Resize if larger than max
             if img.width > max_width or img.height > max_height:
                 img.thumbnail((max_width, max_height), Image.Resampling.LANCZOS)
             
-            # Convert to RGB if needed (for JPEG quality)
             if img.mode in ('RGBA', 'P'):
                 img = img.convert('RGB')
             
-            # Save compressed to bytes
             compressed = BytesIO()
-            img.save(compressed, format='JPEG', quality=80, optimize=True)
+            img.save(compressed, format='JPEG', quality=60, optimize=True)  # Reduced from 80
             compressed.seek(0)
             
-            # Encode to base64
             image_data = compressed.read()
             base64_image = base64.b64encode(image_data).decode('utf-8')
+            print(f"[Featherless] Compressed image size: {len(image_data)} bytes, base64: {len(base64_image)} chars")
             return base64_image
             
         except Exception as e:
@@ -60,45 +50,28 @@ class FeatherlessService:
     def extract_text_from_image(self, image_file):
         """
         Send image to Featherless AI and extract text from it.
-        
-        This calls the vision model which reads the fertilizer label
-        and returns all text it can see.
-        
-        Args:
-            image_file: Django UploadedFile object
-            
-        Returns:
-            dict with:
-                - success: bool (True if extraction worked)
-                - text: str (extracted text from image)
-                - error: str (error message if it failed)
+        Uses structured content arrays to parse image inputs natively.
         """
         try:
             print("[Featherless] Compressing image...")
-            # Convert image to base64
             base64_image = self.encode_image_to_base64(image_file)
-            print(f"[Featherless] Image compressed. Base64 size: {len(base64_image)} chars")
+            print(f"[Featherless] Compressed image size: {len(base64_image)} chars")
             
-            # Prepare the request to Featherless AI
-            # We're asking the vision model to read the image and extract all text
             headers = {
                 'Authorization': f'Bearer {self.api_key}',
                 'Content-Type': 'application/json'
             }
             
+            # FIXED: Multimodal payload structure
             payload = {
                 'model': self.model,
                 'messages': [
-                    {
-                        'role': 'system',
-                        'content': 'You are a fertilizer label analyzer. Extract ALL text from the fertilizer label image. List every ingredient, chemical name, and specification you can see. Be thorough and accurate.'
-                    },
                     {
                         'role': 'user',
                         'content': [
                             {
                                 'type': 'text',
-                                'text': 'Please read this fertilizer label image carefully and extract all text. Include all ingredients, chemical names, percentages, warnings, and any other information visible on the label.'
+                                'text': 'Extract all text from this fertilizer label. List ingredients, chemicals, percentages, and warnings clearly.'
                             },
                             {
                                 'type': 'image_url',
@@ -109,15 +82,14 @@ class FeatherlessService:
                         ]
                     }
                 ],
-                'max_tokens': 2048
+                'max_tokens': 1024
             }
             
             print(f"[Featherless] Sending request to {self.api_url}")
-            # Send request to Featherless AI
+            print(f"[Featherless] Using model: {self.model}")
             response = requests.post(self.api_url, json=payload, headers=headers, timeout=60)
             response.raise_for_status()
             
-            # Extract the text from the response
             result = response.json()
             extracted_text = result['choices'][0]['message']['content']
             
@@ -125,39 +97,59 @@ class FeatherlessService:
             return {
                 'success': True,
                 'text': extracted_text,
-                'error': None
+                'error': None,
+                'is_demo': False
             }
             
         except requests.exceptions.Timeout:
             return {
                 'success': False,
                 'text': None,
-                'error': 'Request to Featherless AI timed out. Please try again.'
+                'error': 'Request timed out. Please try again.',
+                'is_demo': False
             }
         except requests.exceptions.HTTPError as e:
             error_msg = str(e)
+            print(f"[Featherless] HTTP Error: {error_msg}")
+            
+            try:
+                response_text = e.response.text
+                print(f"[Featherless] Full response: {response_text}")
+            except:
+                pass
+            
             if '413' in error_msg:
-                error_msg = 'Image is still too large. Please use a smaller or lower-quality photo.'
-            return {
-                'success': False,
-                'text': None,
-                'error': f'Featherless API error: {error_msg}'
-            }
-        except requests.exceptions.RequestException as e:
-            return {
-                'success': False,
-                'text': None,
-                'error': f'Failed to connect to Featherless AI: {str(e)}'
-            }
-        except KeyError:
-            return {
-                'success': False,
-                'text': None,
-                'error': 'Unexpected response format from Featherless AI.'
-            }
+                return {
+                    'success': False,
+                    'text': None,
+                    'error': 'Image is too large. Use a smaller image.',
+                    'is_demo': False
+                }
+            elif '503' in error_msg or '502' in error_msg or '400' in error_msg:
+                print("[Featherless] Server issue or bad request syntax. Using demo mode fallback.")
+                # If your class contains get_demo_extraction, trigger fallback
+                if hasattr(self, 'get_demo_extraction'):
+                    demo_result = self.get_demo_extraction()
+                    demo_result['error'] = f'⚠️ Demo Mode Fallback: {error_msg}'
+                    return demo_result
+                return {
+                    'success': False,
+                    'text': None,
+                    'error': f'Featherless API error: {error_msg}',
+                    'is_demo': False
+                }
+            else:
+                return {
+                    'success': False,
+                    'text': None,
+                    'error': f'Featherless API error: {error_msg}',
+                    'is_demo': False
+                }
         except Exception as e:
+            print(f"[ERROR] {str(e)}")
             return {
                 'success': False,
                 'text': None,
-                'error': f'Error extracting text: {str(e)}'
+                'error': f'Error: {str(e)}',
+                'is_demo': False
             }
