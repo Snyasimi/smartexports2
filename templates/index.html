@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartExports - Farm Input Compliance Checker</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>🌾 SmartExports</h1>
+                <p class="tagline">Check Your Farm Input for EU Market Compliance</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Upload Section -->
+            <section class="upload-section">
+                <div class="upload-card">
+                    <h2>📸 Upload Fertilizer Label</h2>
+                    <p class="instruction">Take a photo of your fertilizer label and upload it here. We'll check if it's safe for EU export.</p>
+                    
+                    <form id="uploadForm" class="upload-form">
+                        <div class="file-input-wrapper">
+                            <input 
+                                type="file" 
+                                id="imageInput" 
+                                name="image" 
+                                accept="image/*" 
+                                required
+                                class="file-input"
+                            >
+                            <label for="imageInput" class="file-label">
+                                <span class="file-icon">📁</span>
+                                <span class="file-text">Click to upload or drag and drop</span>
+                                <span class="file-subtext">JPG, PNG up to 10MB</span>
+                            </label>
+                        </div>
+
+                        <div id="imagePreview" class="image-preview" style="display: none;">
+                            <img id="previewImg" src="" alt="Preview">
+                            <button type="button" class="remove-btn" onclick="clearImage()">✕ Remove</button>
+                        </div>
+
+                        <button type="submit" id="submitBtn" class="submit-btn">
+                            <span id="submitText">Analyze Label</span>
+                            <span id="submitSpinner" class="spinner" style="display: none;"></span>
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section id="resultsSection" class="results-section" style="display: none;">
+                <div class="results-card">
+                    <!-- Verdict -->
+                    <div id="verdictBox" class="verdict-box">
+                        <div id="verdictContent"></div>
+                    </div>
+
+                    <!-- Chemicals Found -->
+                    <div id="chemicalsSection" class="section" style="display: none;">
+                        <h3>🧪 Chemicals Detected</h3>
+                        <div id="chemicalsList" class="chemicals-list"></div>
+                    </div>
+
+                    <!-- Explanations -->
+                    <div id="explanationsSection" class="section" style="display: none;">
+                        <h3>📋 Details</h3>
+                        <div id="explanationsList" class="explanations-list"></div>
+                    </div>
+
+                    <!-- Recommendations -->
+                    <div class="section">
+                        <h3>✅ What You Should Do</h3>
+                        <div id="recommendationsBox" class="recommendations-box"></div>
+                    </div>
+
+                    <!-- Debug Info (remove in production) -->
+                    <details class="debug-section">
+                        <summary>🔍 Extracted Label Text (Debug)</summary>
+                        <pre id="extractedText"></pre>
+                    </details>
+
+                    <!-- Action Buttons -->
+                    <div class="action-buttons">
+                        <button onclick="resetForm()" class="secondary-btn">← Check Another Fertilizer</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Error Section -->
+            <section id="errorSection" class="error-section" style="display: none;">
+                <div class="error-card">
+                    <h3>⚠️ Something went wrong</h3>
+                    <p id="errorMessage"></p>
+                    <button onclick="resetForm()" class="secondary-btn">← Try Again</button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>SmartExports helps smallholder farmers protect their EU market access. Built for the Kenya AI Challenge.</p>
+            <p class="note">⚠️ <strong>Important:</strong> This tool is a decision support system. Always consult an agronomist or your buyer for final confirmation.</p>
+        </footer>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
