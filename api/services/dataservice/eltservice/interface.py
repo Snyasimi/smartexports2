@@ -1,6 +1,6 @@
 from abc import ABC,abstractmethod
 
-class EltSerivceInterface(ABC)
+class ELTServiceInterface(ABC):
 
     @abstractmethod
     def extract_data(self):
@@ -12,8 +12,9 @@ class EltSerivceInterface(ABC)
         #Transform data before loading/saving
         pass
 
-    @abstractmethod(self):
-    def load_data:
+    @abstractmethod    
+    def load_data(self):
+
         #Load data to neo4J
         pass
 
